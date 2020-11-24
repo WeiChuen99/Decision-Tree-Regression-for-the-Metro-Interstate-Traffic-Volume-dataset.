@@ -34,12 +34,12 @@ function DecisionRegressionTree
 
     function buildtree(X,y,depth,flag)
         n = length(y);
-        min_node = 100;
+        min_node = 500;
         CV = (nanstd(y)/nanmean(y))*100;
         fprintf('DepthofNode = %d. NodeValue = %f. FlagSign = %d.\n', depth, mean(y), flag);
         if(n>=min_node)
             [index,p,sd,sub1,sub2]=buildnode(X,y);
-            if CV<20
+            if CV<10
                 return;
             end
             y_left=y(sub1); y_right=y(sub2);
@@ -52,10 +52,9 @@ function DecisionRegressionTree
         end
     end
 
-    function [ index, p, sd, sub1, sub2 ] = buildnode( X, y )
+    function [index,p,sd,sub1,sub2] = buildnode(X,y)
         [x_row, x_col] = size(X);
         sd = std(y);
-        sd = ceil(sd);
         index = 0;
         for i = 1:x_col
             [p_i,sd_i,sub1_i,sub2_i]=split(X(:,i),y);
@@ -67,33 +66,54 @@ function DecisionRegressionTree
         [p,sd,sub1,sub2]=split(X(:,index),y);
     end
 
+    % Main starts here
     clear
     clc
-
     data=readtable('Metro_Interstate_Traffic_Volume.csv');
-    % train: 70%, test: 30%
+    
+    % Train: 70%, Test: 30%
     cv = cvpartition(size(data,1),'HoldOut',0.3);
     idx = cv.test;
+   
     % Separate to training and test data
     dataTrain = data(~idx,:);
     dataTest  = data(idx,:);
 
+    % Data processing 
     Xy=dataTrain;
     traffic_volume=Xy(:,end);
     traffic_volume=table2array(traffic_volume);
 
     X=dataTrain;
     holiday	=X(:,1);
+    holiday = table2array(holiday);
+    holiday = categorical(holiday);
+    holiday = array2table(double(holiday));
+    holiday.Properties.VariableNames = {'holiday'};
+
     temp	=X(:,2);
     rain_1h	=X(:,3);
     snow_1h	=X(:,4);
     clouds_all	=X(:,5);
-    weather_main	=X(:,6);
+    
+    weather_main=X(:,6);
+    weather_main = table2array(weather_main);
+    weather_main = categorical(weather_main);
+    weather_main = array2table(double(weather_main));
+    weather_main.Properties.VariableNames = {'weather_main'};
+    
     weather_description	=X(:,7);
-    date_time	=X(:,8);
-
-    X=[temp, rain_1h, snow_1h, clouds_all];
-    X=table2array(X);
-    buildtree(X,traffic_volume,1,1);
+    weather_description = table2array(weather_description);
+    weather_description = categorical(weather_description);
+    weather_description = array2table(double(weather_description));
+    weather_description.Properties.VariableNames = {'weather_description'};
+   
+    %date_time	=X(:,8);
+    
+    X2=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description];
+    X2=table2array(X2);
+  
+    % Build Regression Tree
+    buildtree(X2,traffic_volume,1,1);
 
 end
