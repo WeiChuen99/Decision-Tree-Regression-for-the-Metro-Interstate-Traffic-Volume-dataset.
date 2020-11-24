@@ -108,9 +108,13 @@ function DecisionRegressionTree
     weather_description = array2table(double(weather_description));
     weather_description.Properties.VariableNames = {'weather_description'};
    
-    %date_time	=X(:,8);
-    
-    X2=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description];
+    date_time	=X(:,8);
+    date_time = table2array(date_time);
+    date_time = datenum(date_time);
+    date_time = array2table(double(date_time));
+    date_time.Properties.VariableNames = {'date_time'};
+
+    X2=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
     X2=table2array(X2);
   
     % Build Regression Tree
