@@ -62,10 +62,15 @@ function DecisionRegressionTree
     % Build Regression Tree
     trees = DecisionTreeLearning(X2,traffic_volume,1,1);
     DrawDecisionTree(trees);
+
+    tree2 = fitrtree(X2,traffic_volume);
+    cvmodel = crossval(tree2, 'KFold', 5);
     
-    tree2 = fitrtree(X2,traffic_volume);        %CROSS VALIDATION
-    cvmodel = crossval(tree2);
-    loss = kfoldLoss(cvmodel)
+    validatePredictions = kfoldPredict(cvmodel);
+    save('validatePredictions')
+    
+    RMSE = sqrt(kfoldLoss(cvmodel, 'LossFun', 'mse'))
+    save('RMSE')
 
     
     % Sub function starts here
