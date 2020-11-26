@@ -1,4 +1,20 @@
 function DrawDecisionTree(tree,titletext)
+%DRAWTREE    Draws the GPLAB trees graphically.
+%     DRAWTREE(TREE,TITLE) draws the TREE in a window with TITLE. 
+%  
+%     Input arguments:
+%        TREE - a GPLAB tree (struct)
+%        TITLE - title of the tree figure (optional,string)
+%     Output arguments:
+%        none
+%
+%   Created (2003) by SINTEF (hso@sintef.no,jtt@sintef.no,okl@sintef.no)
+%   Modified (2004) by Sara Silva (sara@dei.uc.pt)
+%   - removed object-oriented constructs and some "over-specific" code
+%   This file is part of the GPLAB toolbox.
+
+
+
 % Set tree titles
 if nargin < 2
     titletext = 'Decision Tree found';
@@ -7,6 +23,8 @@ end
 h=figure; % new figure for this particular tree
 % set(h,'name',titletext);
 title(titletext);
+
+
 
 % First, count nodes
 [tree, count] = walkTreeDepthFirst(tree, 'countLeaves', [],  0, 0);
@@ -20,6 +38,8 @@ state.yDist = -1;
 [tree, state] = walkTreeDepthFirst(tree, [], 'drawNode', 0, 0 );
 
 axis off
+
+
 
 %% Subfunctions. See comments above for what they do
 
@@ -78,7 +98,7 @@ if ~isempty(tree.kids)
 %     text(tree.X, tree.Y, ['  ' opText], 'HorizontalAlignment', 'left', 'interpreter', 'none')
     text(tree.X, tree.Y,num2str(opText),'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom','interpreter', 'none');
 else
-%     opText = tree.op; 
+    opText = tree.op;
     line(tree.X, tree.Y, 'marker', '.', 'markersize', 8)
 %     text(tree.X, tree.Y, opText, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', 'interpreter', 'none')
     text(tree.X, tree.Y, num2str(tree.class) ,'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', 'interpreter', 'none');
