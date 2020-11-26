@@ -3,69 +3,11 @@
 % StandardDeviationReduction(T,X)=S(T)-S(T,X)
 % 03: Choose feature with largest standard deviation reduction as decision node
 % 04: Divide dataset based on the values of the selected feature
-% 05: Branch set with CV more than 20 needs further splitting
+% 05: Branch set with standard deviation > 0 needs further splitting
 % 06: Run recursively on the non-leaf branches
     
 function DecisionRegressionTree
-    function [p,sd,sub1,sub2] = split(x, y)
-        x_min = min(x);
-        x_max = max(x);
-        inc = (x_max - x_min)/1000; % length of increament
-        sd = std(y);
-        p = x_min;
-        sub1 = find(x>p);
-        sub2 = find(x<=p);
-        for pt = (x_min+inc):inc:x_max
-            sub_index1 = find(x>pt);
-            sub_index2 = find(x<=pt);
-            sd1_temp = std(y(sub_index1));
-            sd2_temp = std(y(sub_index2));
-            num_sub1 = length(sub_index1);
-            num_sub2 = length(sub_index2);
-            sd_temp = (num_sub1*sd1_temp+num_sub2*sd2_temp)/length(x);
-            if(sd_temp<sd)
-                p = pt;
-                sd = sd_temp;
-                sub1 = sub_index1;
-                sub2 = sub_index2;
-            end    
-        end
-    end
-
-    function buildtree(X,y,depth,flag)
-        n = length(y);
-        min_node = 500;
-        CV = (nanstd(y)/nanmean(y))*100;
-        fprintf('DepthofNode = %d. NodeValue = %f. FlagSign = %d.\n', depth, mean(y), flag);
-        if(n>=min_node)
-            [index,p,sd,sub1,sub2]=buildnode(X,y);
-            if CV<10
-                return;
-            end
-            y_left=y(sub1); y_right=y(sub2);
-            X_left=X(sub1,:); X_right=X(sub2,:);
-            fprintf('Column = %d. SplitValue = %f. StandardDeviation = %f.\n', index, p, sd);
-            depth = depth+1;
-            buildtree(X_left, y_left, depth, 1);  
-            buildtree(X_right, y_right, depth, 0);
-            depth = depth-1;
-        end
-    end
-
-    function [index,p,sd,sub1,sub2] = buildnode(X,y)
-        [x_row, x_col] = size(X);
-        sd = std(y);
-        index = 0;
-        for i = 1:x_col
-            [p_i,sd_i,sub1_i,sub2_i]=split(X(:,i),y);
-            if(sd_i<sd)
-                sd = sd_i;
-                index = i;
-            end
-        end
-        [p,sd,sub1,sub2]=split(X(:,index),y);
-    end
-
+    
     % Main starts here
     clear
     clc
@@ -115,9 +57,89 @@ function DecisionRegressionTree
     date_time.Properties.VariableNames = {'date_time'};
 
     X2=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
-    X2=table2array(X2);
-  
+    X2 = table2array(X2);
+    
     % Build Regression Tree
-    buildtree(X2,traffic_volume,1,1);
+    trees = DecisionTreeLearning(X2,traffic_volume,1,1);
+    DrawDecisionTree(trees);
+    %PrintTree(tree, 'root');
+    %tree2 = fitrtree(X2,traffic_volume);
+    %view(tree2,'Mode','graph');
+    
+    % Sub function starts here
+    function [best_threshold,std_dev,subleft,subright] = split(x, y)
+        x_min = min(x);
+        x_max = max(x);
+        inc = (x_max - x_min)/1000; % length of increament
+        std_dev = std(y);
+        best_threshold = x_min;
+        subleft = find(x>best_threshold);
+        subright = find(x<=best_threshold);
+        for pt = (x_min+inc):inc:x_max
+            sub_index_left = find(x>pt);
+            sub_index_right = find(x<=pt);
+            sd1_temp = std(y(sub_index_left));
+            sd2_temp = std(y(sub_index_right));
+            num_sub1 = length(sub_index_left);
+            num_sub2 = length(sub_index_right);
+            sd_temp = (num_sub1*sd1_temp+num_sub2*sd2_temp)/length(x);
+            if(sd_temp<std_dev)
+                best_threshold = pt;
+                std_dev = sd_temp;
+                subleft = sub_index_left;
+                subright = sub_index_right;
+            end    
+        end
+    end
 
+    function  [tree]= DecisionTreeLearning(X,y,depth,flag)
+        % Create tree node
+        tree = struct('op','','kids',[],'class','','num',0);
+        
+        n = length(y);
+        min_node = 100;
+        sigma =0.00001;     
+
+        fprintf('DepthofNode = %d. NodeValue = %f. FlagSign = %d.\n', depth, mean(y), flag);
+
+        if(n>=min_node)            
+            [best_attribute,best_threshold,std_dev,subleft,subright]=buildnode(X,y);
+            if (std_dev<sigma)
+                 tree.class = 1; 
+                 tree.num = size(X);
+                return;
+            end
+            y_left=y(subleft); 
+            y_right=y(subright);
+            X_left=X(subleft,:); 
+            X_right=X(subright,:);
+            fprintf('Column = %d. SplitValue = %f. StandardDeviation = %f.\n', best_attribute, best_threshold, std_dev);
+           
+            
+            tree.kids = cell(1,2);
+            depth = depth+1;
+            tree.kids{1} = DecisionTreeLearning(X_left, y_left, depth, 1); 
+            tree.kids{2} = DecisionTreeLearning(X_right, y_right, depth, 0);
+            depth = depth-1;
+            
+            tree.op = [best_attribute,best_threshold];
+
+        end        
+    end
+
+    function [best_attribute,best_threshold,std_dev,subleft,subright] = buildnode(X,y)
+        [x_row, x_col] = size(X);
+        std_dev = std(y);
+        best_attribute = 0;
+        for i = 1:x_col
+            [best_threshold_i,std_dev_i,subleft_i,subright_i]=split(X(:,i),y);
+            if(std_dev_i<std_dev)
+                std_dev = std_dev_i;
+                best_attribute = i;
+            end
+        end
+        [best_threshold,std_dev,subleft,subright]=split(X(:,best_attribute),y);
+    end
 end
+
+
