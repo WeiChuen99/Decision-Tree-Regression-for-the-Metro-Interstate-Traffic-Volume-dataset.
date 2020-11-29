@@ -6,140 +6,186 @@
 % 05: Branch set with standard deviation > 0 needs further splitting
 % 06: Run recursively on the non-leaf branches
     
-function DecisionRegressionTree
-    
-    % Main starts here
-    clear
-    clc
-    data=readtable('Metro_Interstate_Traffic_Volume.csv');
-    
-    % Train: 70%, Test: 30%
-    cv = cvpartition(size(data,1),'HoldOut',0.3);
-    idx = cv.test;
-   
-    % Separate to training and test data
-    dataTrain = data(~idx,:);
-    dataTest  = data(idx,:);
+% Main starts here
+clear
+clc
+data=readtable('Metro_Interstate_Traffic_Volume.csv');
+attribute_name = data.Properties.VariableNames;
 
-    % Data processing 
-    Xy=dataTrain;
-    traffic_volume=Xy(:,end);
-    traffic_volume=table2array(traffic_volume);
+% Data processing 
+holiday	=data(:,1);
+holiday = table2array(holiday);
+holiday = categorical(holiday);
+holiday = array2table(double(holiday));
+holiday.Properties.VariableNames = {'holiday'};
 
-    X=dataTrain;
-    holiday	=X(:,1);
-    holiday = table2array(holiday);
-    holiday = categorical(holiday);
-    holiday = array2table(double(holiday));
-    holiday.Properties.VariableNames = {'holiday'};
+temp	=data(:,2);
+rain_1h	=data(:,3);
+snow_1h	=data(:,4);
+clouds_all	=data(:,5);
 
-    temp	=X(:,2);
-    rain_1h	=X(:,3);
-    snow_1h	=X(:,4);
-    clouds_all	=X(:,5);
-    
-    weather_main=X(:,6);
-    weather_main = table2array(weather_main);
-    weather_main = categorical(weather_main);
-    weather_main = array2table(double(weather_main));
-    weather_main.Properties.VariableNames = {'weather_main'};
-    
-    weather_description	=X(:,7);
-    weather_description = table2array(weather_description);
-    weather_description = categorical(weather_description);
-    weather_description = array2table(double(weather_description));
-    weather_description.Properties.VariableNames = {'weather_description'};
-   
-    date_time	=X(:,8);
-    date_time = table2array(date_time);
-    date_time = datenum(date_time);
-    date_time = array2table(double(date_time));
-    date_time.Properties.VariableNames = {'date_time'};
+weather_main=data(:,6);
+weather_main = table2array(weather_main);
+weather_main = categorical(weather_main);
+weather_main = array2table(double(weather_main));
+weather_main.Properties.VariableNames = {'weather_main'};
 
-    X2=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
-    X2 = table2array(X2);
-    
+weather_description	=data(:,7);
+weather_description = table2array(weather_description);
+weather_description = categorical(weather_description);
+weather_description = array2table(double(weather_description));
+weather_description.Properties.VariableNames = {'weather_description'};
+
+date_time	=data(:,8);
+date_time = table2array(date_time);
+date_time = datenum(date_time);
+date_time = array2table(double(date_time));
+date_time.Properties.VariableNames = {'date_time'};
+
+X=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
+X = table2array(X);
+
+traffic_volume=data(:,end);
+traffic_volume=table2array(traffic_volume);
+y=traffic_volume;    
+
+%Set number of folds for validation 
+n_folds = 10;
+
+% Generate indices for cross validation
+len = length(X);
+partition = cvpartition(len, 'KFold', n_folds);
+
+all_RMSE = 0;
+
+% Perform cross validation
+for t=1:n_folds
+    fprintf('KFold  = %d.\n', t);
+    fprintf('-------------\n');
+
+    % Training set for current fold
+    train_idx = partition.training(t);
+    Xtrain = X(train_idx,:);
+    ytrain = y(train_idx,:);
+
+    % Test set for current fold
+    test_idx = partition.test(t);
+    Xtest = X(test_idx,:);
+    ytest = y(test_idx,:);
+
     % Build Regression Tree
-    trees = DecisionTreeLearning(X2,traffic_volume,1,1);
+    trees = DecisionTreeLearning(Xtrain,ytrain,1,1,attribute_name);
     DrawDecisionTree(trees);
-    %PrintTree(tree, 'root');
-    %tree2 = fitrtree(X2,traffic_volume);
-    %view(tree2,'Mode','graph');
-    
-    % Sub function starts here
-    function [best_threshold,std_dev,subleft,subright] = split(x, y)
-        x_min = min(x);
-        x_max = max(x);
-        inc = (x_max - x_min)/1000; % length of increament
-        std_dev = std(y);
-        best_threshold = x_min;
-        subleft = find(x>best_threshold);
-        subright = find(x<=best_threshold);
-        for pt = (x_min+inc):inc:x_max
-            sub_index_left = find(x>pt);
-            sub_index_right = find(x<=pt);
-            sd1_temp = std(y(sub_index_left));
-            sd2_temp = std(y(sub_index_right));
-            num_sub1 = length(sub_index_left);
-            num_sub2 = length(sub_index_right);
-            sd_temp = (num_sub1*sd1_temp+num_sub2*sd2_temp)/length(x);
-            if(sd_temp<std_dev)
-                best_threshold = pt;
-                std_dev = sd_temp;
-                subleft = sub_index_left;
-                subright = sub_index_right;
-            end    
-        end
-    end
 
-    function  [tree]= DecisionTreeLearning(X,y,depth,flag)
-        % Create tree node
-        tree = struct('op','','kids',[],'class','','num',0);
-        
-        n = length(y);
-        min_node = 100;
-        sigma =0.00001;     
+    % Predict on test set base of regression tree
+    prediction = predict(trees, Xtest);
 
-        fprintf('DepthofNode = %d. NodeValue = %f. FlagSign = %d.\n', depth, mean(y), flag);
+    % Calculate RMSE for current fold
+    RMSE = sqrt(mean((ytest-prediction).^2));
 
-        if(n>=min_node)            
-            [best_attribute,best_threshold,std_dev,subleft,subright]=buildnode(X,y);
-            if (std_dev<sigma)
-                 tree.class = 1; 
-                 tree.num = size(X);
-                return;
-            end
-            y_left=y(subleft); 
-            y_right=y(subright);
-            X_left=X(subleft,:); 
-            X_right=X(subright,:);
-            fprintf('Column = %d. SplitValue = %f. StandardDeviation = %f.\n', best_attribute, best_threshold, std_dev);
-           
-            
-            tree.kids = cell(1,2);
-            depth = depth+1;
-            tree.kids{1} = DecisionTreeLearning(X_left, y_left, depth, 1); 
-            tree.kids{2} = DecisionTreeLearning(X_right, y_right, depth, 0);
-            depth = depth-1;
-            
-            tree.op = [best_attribute,best_threshold];
+    % Accumulate all RMSE for every fold
+    all_RMSE = all_RMSE + RMSE;    
+end
 
-        end        
-    end
+%   Calculate average RMSE for all 10 folds
+Average_RMSE = all_RMSE/n_folds;
 
-    function [best_attribute,best_threshold,std_dev,subleft,subright] = buildnode(X,y)
-        [x_row, x_col] = size(X);
-        std_dev = std(y);
-        best_attribute = 0;
-        for i = 1:x_col
-            [best_threshold_i,std_dev_i,subleft_i,subright_i]=split(X(:,i),y);
-            if(std_dev_i<std_dev)
-                std_dev = std_dev_i;
-                best_attribute = i;
-            end
-        end
-        [best_threshold,std_dev,subleft,subright]=split(X(:,best_attribute),y);
+% Sub function starts here
+function [best_threshold,std_dev,subleft,subright] = split(x, y)
+    x_min = min(x);
+    x_max = max(x);
+    inc = (x_max - x_min)/1000; % length of increament
+    std_dev = std(y);
+    best_threshold = x_min;
+    subleft = find(x>best_threshold);
+    subright = find(x<=best_threshold);
+    for pt = (x_min+inc):inc:x_max
+        sub_index_left = find(x>pt);
+        sub_index_right = find(x<=pt);
+        sd1_temp = std(y(sub_index_left));
+        sd2_temp = std(y(sub_index_right));
+        num_sub1 = length(sub_index_left);
+        num_sub2 = length(sub_index_right);
+        sd_temp = (num_sub1*sd1_temp+num_sub2*sd2_temp)/length(x);
+        if(sd_temp<std_dev)
+            best_threshold = pt;
+            std_dev = sd_temp;
+            subleft = sub_index_left;
+            subright = sub_index_right;
+        end    
     end
 end
 
+function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_name)    
+    % Create tree node
+    tree = struct('op','','kids',[],'class',[],'attribute',0,'threshold', 0);
 
+    n = length(traffic_volume);
+    min_node = 3000;
+    sigma =0.9;     
+
+    fprintf('DepthofNode = %d. NodeValue = %1.f. FlagSign = %d.\n', depth, mean(traffic_volume), flag);
+    tree.class = mean(traffic_volume);
+    
+    if(n>=min_node)            
+        [best_attribute,best_threshold,std_dev,subleft,subright]=buildnode(X,traffic_volume);
+        if (std_dev<sigma)
+            tree.op = '';
+            tree.attribute = 0;
+            tree.threshold = 0;
+            tree.kids = [];
+            tree.class = mean(traffic_volume);
+            return;
+        end
+        tree.op = char(attribute_name{best_attribute});
+        tree.attribute = best_attribute;
+        tree.threshold = best_threshold;
+
+        y_left=traffic_volume(subleft); 
+        y_right=traffic_volume(subright);
+        X_left=X(subleft,:); 
+        X_right=X(subright,:);
+
+        fprintf('Column = %d. SplitValue = %1.f. StandardDeviation = %f.\n', best_attribute, best_threshold, std_dev);
+
+        tree.kids = cell(1,2);
+        depth = depth+1;
+
+        tree.kids{1} = DecisionTreeLearning(X_left, y_left, depth, 1, attribute_name); 
+        tree.kids{2} = DecisionTreeLearning(X_right, y_right, depth, 0, attribute_name);
+        depth = depth-1; 
+    end  
+end
+
+
+function [best_attribute,best_threshold,std_dev,subleft,subright] = buildnode(X,y)
+    [x_row, x_col] = size(X);
+    std_dev = std(y);
+    best_attribute = 0;
+    for i = 1:x_col
+        [best_threshold_i,std_dev_i,subleft_i,subright_i]=split(X(:,i),y);
+        if(std_dev_i<std_dev)
+            std_dev = std_dev_i;
+            best_attribute = i;
+        end
+    end
+    [best_threshold,std_dev,subleft,subright]=split(X(:,best_attribute),y);
+end
+
+function [prediction_result] = predict(tree, examples)
+    root = tree;
+    len_examples = size(examples, 1);
+    prediction_result = transpose(1:len_examples);
+    % While we still have subtree, iterate through the subtrees
+    for row = 1:len_examples
+        tree = root;
+         while tree.op ~= -1
+            if examples(row, tree.attribute) <= tree.threshold
+                tree = tree.kids{1}; 
+            else
+                tree = tree.kids{2};
+            end
+         end
+         prediction_result(row,1) = tree.class;
+    end    
+end
