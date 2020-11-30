@@ -49,46 +49,51 @@ traffic_volume=data(:,end);
 traffic_volume=table2array(traffic_volume);
 y=traffic_volume;    
 
-%Set number of folds for validation 
-n_folds = 10;
-
-% Generate indices for cross validation
-len = length(X);
-partition = cvpartition(len, 'KFold', n_folds);
+dataset = [X, y];
 
 all_RMSE = 0;
 
-% Perform cross validation
-for t=1:n_folds
-    fprintf('KFold  = %d.\n', t);
+%% Data preparation for cross-validation
+k=10; % k-fold
+sampleSize = 4820; % size of each set divisible by 10
+lastn = 4; 
+table = dataset(1:end-lastn,:); %remove last 2 rows
+[r, ~] = size(dataset);
+numTestItems = round(r*0.1); %size of test set
+numTrainingItems = r - numTestItems; % leftover to be training set
+dataIndices = randperm(r); % shuffle the dataset 
+shuffled_data = dataset(dataIndices,:);
+
+%% K-Fold cross validation
+for fold =1:k
+    fprintf(" %d Fold\n",fold);
     fprintf('-------------\n');
-
-    % Training set for current fold
-    train_idx = partition.training(t);
-    Xtrain = X(train_idx,:);
-    ytrain = y(train_idx,:);
-
-    % Test set for current fold
-    test_idx = partition.test(t);
-    Xtest = X(test_idx,:);
-    ytest = y(test_idx,:);
-
+    test_indices = 1+(fold-1)*sampleSize:fold*sampleSize;
+    train_indices = [1:(fold-1)*sampleSize, fold*sampleSize+1:numTrainingItems];
+    
+    %% Training data preparation
+    trainingData = dataset(train_indices,:);
+    testData = dataset(test_indices,:);
+    Xtrain = trainingData(:,1:8);
+    ytrain = trainingData(:,end);
+    Xtest = testData(:,1:8);
+    ytest = testData(:,end);
+    
     % Build Regression Tree
     trees = DecisionTreeLearning(Xtrain,ytrain,1,1,attribute_name);
     DrawDecisionTree(trees);
 
     % Predict on test set base of regression tree
     prediction = predict(trees, Xtest);
-
+    
     % Calculate RMSE for current fold
     RMSE = sqrt(mean((ytest-prediction).^2));
 
     % Accumulate all RMSE for every fold
-    all_RMSE = all_RMSE + RMSE;    
+    all_RMSE = all_RMSE + RMSE;   
 end
-
 %   Calculate average RMSE for all 10 folds
-Average_RMSE = all_RMSE/n_folds;
+Average_RMSE = all_RMSE/k;
 
 % Sub function starts here
 function [best_threshold,std_dev,subleft,subright] = split(x, y)
@@ -121,8 +126,8 @@ function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_nam
     tree = struct('op','','kids',[],'class',[],'attribute',0,'threshold', 0);
 
     n = length(traffic_volume);
-    min_node = 3000;
-    sigma =0.9;     
+    min_node = 4338; % 10% of the number of observations
+    sigma =0.0001;   % 〖10〗^(-5)
 
     fprintf('DepthofNode = %d. NodeValue = %1.f. FlagSign = %d.\n', depth, mean(traffic_volume), flag);
     tree.class = mean(traffic_volume);
