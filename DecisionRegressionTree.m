@@ -126,15 +126,15 @@ function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_nam
     tree = struct('op','','kids',[],'class',[],'attribute',0,'threshold', 0);
 
     n = length(traffic_volume);
-    min_node = 4338; % 10% of the number of observations
-    sigma =0.0001;   % ?10?^(-5)
+    min_node = 2000; % 5% of the number of observations
+    e =0.05;         % measure of error = 1-0.95 (95% of confidence)
 
     fprintf('DepthofNode = %d. NodeValue = %1.f. FlagSign = %d.\n', depth, mean(traffic_volume), flag);
     tree.class = mean(traffic_volume);
     
     if(n>=min_node)            
         [best_attribute,best_threshold,std_dev,subleft,subright]=buildnode(X,traffic_volume);
-        if (std_dev<sigma)
+        if (std_dev<e)
             tree.op = '';
             tree.attribute = 0;
             tree.threshold = 0;
