@@ -87,13 +87,17 @@ for fold =1:k
     prediction = predict(trees, Xtest);
     
     % Calculate RMSE for current fold
-    RMSE = sqrt(mean((ytest-prediction).^2));
+    s = sum((ytest-prediction).^2);
+    mse = s/length(ytest);
+    rmse = sqrt(mse);
+    nrmse = rmse/(std(ytest))
 
     % Accumulate all RMSE for every fold
-    all_RMSE = all_RMSE + RMSE;   
+    all_RMSE = all_RMSE + nrmse;   
 end
 %   Calculate average RMSE for all 10 folds
 Average_RMSE = all_RMSE/k;
+fprintf('Average RMSE = %f\n', Average_RMSE);
 
 % Sub function starts here
 function [best_threshold,std_dev,subleft,subright] = split(x, y)
