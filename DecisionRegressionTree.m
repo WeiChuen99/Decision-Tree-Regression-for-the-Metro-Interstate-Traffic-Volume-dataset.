@@ -1,106 +1,111 @@
-% 01: calculate the standard deviation of target
-% 02: split the dataset into different features, then calculate the standard deviation for each
-% StandardDeviationReduction(T,X)=S(T)-S(T,X)
-% 03: Choose feature with largest standard deviation reduction as decision node
-% 04: Divide dataset based on the values of the selected feature
-% 05: Branch set with standard deviation > 0 needs further splitting
-% 06: Run recursively on the non-leaf branches
-    
-% Main starts here
-clear
-clc
-data=readtable('Metro_Interstate_Traffic_Volume.csv');
-attribute_name = data.Properties.VariableNames;
+function DecisionRegressionTree
+    % 01: calculate the standard deviation of target
+    % 02: split the dataset into different features, then calculate the standard deviation for each
+    % StandardDeviationReduction(T,X)=S(T)-S(T,X)
+    % 03: Choose feature with largest standard deviation reduction as decision node
+    % 04: Divide dataset based on the values of the selected feature
+    % 05: Branch set with standard deviation > 0 needs further splitting
+    % 06: Run recursively on the non-leaf branches
 
-% Data processing 
-holiday	=data(:,1);
-holiday = table2array(holiday);
-holiday = categorical(holiday);
-holiday = array2table(double(holiday));
-holiday.Properties.VariableNames = {'holiday'};
+    %% Main starts here
+    data=readtable('Metro_Interstate_Traffic_Volume.csv');
+    attribute_name = data.Properties.VariableNames;
 
-temp	=data(:,2);
-rain_1h	=data(:,3);
-snow_1h	=data(:,4);
-clouds_all	=data(:,5);
+    %% Data processing 
+    holiday	=data(:,1);
+    holiday = table2array(holiday);
+    holiday = categorical(holiday);
+    holiday = array2table(double(holiday));
+    holiday.Properties.VariableNames = {'holiday'};
 
-weather_main=data(:,6);
-weather_main = table2array(weather_main);
-weather_main = categorical(weather_main);
-weather_main = array2table(double(weather_main));
-weather_main.Properties.VariableNames = {'weather_main'};
+    temp	=data(:,2);
+    rain_1h	=data(:,3);
+    snow_1h	=data(:,4);
+    clouds_all	=data(:,5);
 
-weather_description	=data(:,7);
-weather_description = table2array(weather_description);
-weather_description = categorical(weather_description);
-weather_description = array2table(double(weather_description));
-weather_description.Properties.VariableNames = {'weather_description'};
+    weather_main=data(:,6);
+    weather_main = table2array(weather_main);
+    weather_main = categorical(weather_main);
+    weather_main = array2table(double(weather_main));
+    weather_main.Properties.VariableNames = {'weather_main'};
 
-date_time	=data(:,8);
-date_time = table2array(date_time);
-date_time = datenum(date_time);
-date_time = array2table(double(date_time));
-date_time.Properties.VariableNames = {'date_time'};
+    weather_description	=data(:,7);
+    weather_description = table2array(weather_description);
+    weather_description = categorical(weather_description);
+    weather_description = array2table(double(weather_description));
+    weather_description.Properties.VariableNames = {'weather_description'};
 
-X=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
-X = table2array(X);
+    date_time	=data(:,8);
+    date_time = table2array(date_time);
+    date_time = datenum(date_time);
+    date_time = array2table(double(date_time));
+    date_time.Properties.VariableNames = {'date_time'};
 
-traffic_volume=data(:,end);
-traffic_volume=table2array(traffic_volume);
-y=traffic_volume;    
+    X=[holiday, temp, rain_1h, snow_1h, clouds_all, weather_main, weather_description, date_time];
+    X = table2array(X);
 
-dataset = [X, y];
+    traffic_volume=data(:,end);
+    traffic_volume=table2array(traffic_volume);
+    y=traffic_volume;    
 
-all_RMSE = 0;
+    dataset = [X, y];
 
-%% Data preparation for cross-validation
-k=10; % k-fold
-sampleSize = 4820; % size of each set divisible by 10
-lastn = 4; 
-dataset = dataset(1:end-lastn,:); %remove last 2 rows
-[r, ~] = size(dataset);
-numTestItems = round(r*0.1); %size of test set
-numTrainingItems = r - numTestItems; % leftover to be training set
-dataIndices = randperm(r); % shuffle the dataset 
-shuffled_data = dataset(dataIndices,:);
+    all_RMSE = 0;
 
-%% K-Fold cross validation
-for fold =1:k
-    fprintf(" %d Fold\n",fold);
-    fprintf('-------------\n');
-    test_indices = 1+(fold-1)*sampleSize:fold*sampleSize;
-    train_indices = [1:(fold-1)*sampleSize, fold*sampleSize+1:numTrainingItems];
-    
-    %% Training data preparation
-    trainingData = shuffled_data(train_indices,:);
-    testData = shuffled_data(test_indices,:);
-    Xtrain = trainingData(:,1:8);
-    ytrain = trainingData(:,end);
-    Xtest = testData(:,1:8);
-    ytest = testData(:,end);
-    
-    % Build Regression Tree
-    trees = DecisionTreeLearning(Xtrain,ytrain,1,1,attribute_name);
-    DrawDecisionTree(trees);
+    %% Data preparation for cross-validation
+    k=10; % k-fold
+    sampleSize = 4820; % size of each set divisible by 10
+    lastn = 4; 
+    dataset = dataset(1:end-lastn,:); %remove last 2 rows
+    [r, ~] = size(dataset);
+    numTestItems = round(r*0.1); %size of test set
+    numTrainingItems = r - numTestItems; % leftover to be training set
+    dataIndices = randperm(r); % shuffle the dataset 
+    shuffled_data = dataset(dataIndices,:);
 
-    % Predict on test set base of regression tree
-    prediction = predict(trees, Xtest);
-    
-    % Calculate RMSE for current fold
-    s = sum((ytest-prediction).^2);
-    mse = s/length(ytest);
-    rmse = sqrt(mse);
-    nrmse = rmse/(std(ytest))
+    %% K-Fold cross validation
+    for fold =1:k
+        fprintf("Fold %d\n",fold);
+        test_indices = 1+(fold-1)*sampleSize:fold*sampleSize;
+        train_indices = [1:(fold-1)*sampleSize, fold*sampleSize+1:numTrainingItems];
 
-    % Accumulate all RMSE for every fold
-    all_RMSE = all_RMSE + nrmse;   
+        %% Training data preparation
+        trainingData = shuffled_data(train_indices,:);
+        testData = shuffled_data (test_indices,:);
+        Xtrain = trainingData(:,1:8);
+        ytrain = trainingData(:,end);
+        Xtest = testData(:,1:8);
+        ytest = testData(:,end);
+
+        % Build Regression Tree
+        trees = DecisionTreeLearning(Xtrain,ytrain,1,1,attribute_name);
+
+        tree_name = sprintf('Fold %d Regression tree', fold);
+        DrawDecisionTree(trees, tree_name);
+
+        % Predict on test set base of regression tree
+        prediction = predict(trees, Xtest);
+
+        % Calculate RMSE for current fold
+        s = sum((ytest-prediction).^2);
+        mse = s/length(ytest);
+        rmse = sqrt(mse);
+        nrmse = rmse/(std(ytest));  
+
+        % Accumulate all RMSE for every fold
+        all_RMSE = all_RMSE + nrmse;
+
+        fprintf("RMSE = %f\n", nrmse);
+        fprintf('-------------\n');
+    end
+    %   Calculate average RMSE for all 10 folds
+    Average_RMSE = all_RMSE/k;
+    fprintf("Average RMSE = %f\n", Average_RMSE);
 end
-%   Calculate average RMSE for all 10 folds
-Average_RMSE = all_RMSE/k;
-fprintf('Average RMSE = %f\n', Average_RMSE);
 
-% Sub function starts here
+%% functions
 function [best_threshold,std_dev,subleft,subright] = split(x, y)
+%loops through examples(datapoints) and determine best splitting point (threshhold)
     x_min = min(x);
     x_max = max(x);
     inc = (x_max - x_min)/1000; % length of increament
@@ -130,10 +135,9 @@ function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_nam
     tree = struct('op','','kids',[],'class',[],'attribute',0,'threshold', 0);
 
     n = length(traffic_volume);
-    min_node = 2000; % 5% of the number of observations
+    min_node = 4338; % 10% of the number of observations
     e =0.05;         % measure of error = 1-0.95 (95% of confidence)
 
-    fprintf('DepthofNode = %d. NodeValue = %1.f. FlagSign = %d.\n', depth, mean(traffic_volume), flag);
     tree.class = mean(traffic_volume);
     
     if(n>=min_node)            
@@ -155,8 +159,6 @@ function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_nam
         X_left=X(subleft,:); 
         X_right=X(subright,:);
 
-        fprintf('Column = %d. SplitValue = %1.f. StandardDeviation = %f.\n', best_attribute, best_threshold, std_dev);
-
         tree.kids = cell(1,2);
         depth = depth+1;
 
@@ -168,6 +170,7 @@ end
 
 
 function [best_attribute,best_threshold,std_dev,subleft,subright] = buildnode(X,y)
+%loops through all columns to decide which attribute should be used to split
     [x_row, x_col] = size(X);
     std_dev = std(y);
     best_attribute = 0;
