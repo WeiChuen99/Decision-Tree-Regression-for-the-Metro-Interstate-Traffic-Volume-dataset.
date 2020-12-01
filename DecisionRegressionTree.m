@@ -57,7 +57,7 @@ all_RMSE = 0;
 k=10; % k-fold
 sampleSize = 4820; % size of each set divisible by 10
 lastn = 4; 
-table = dataset(1:end-lastn,:); %remove last 2 rows
+dataset = dataset(1:end-lastn,:); %remove last 2 rows
 [r, ~] = size(dataset);
 numTestItems = round(r*0.1); %size of test set
 numTrainingItems = r - numTestItems; % leftover to be training set
@@ -72,8 +72,8 @@ for fold =1:k
     train_indices = [1:(fold-1)*sampleSize, fold*sampleSize+1:numTrainingItems];
     
     %% Training data preparation
-    trainingData = dataset(train_indices,:);
-    testData = dataset(test_indices,:);
+    trainingData = shuffled_data(train_indices,:);
+    testData = shuffled_data(test_indices,:);
     Xtrain = trainingData(:,1:8);
     ytrain = trainingData(:,end);
     Xtest = testData(:,1:8);
