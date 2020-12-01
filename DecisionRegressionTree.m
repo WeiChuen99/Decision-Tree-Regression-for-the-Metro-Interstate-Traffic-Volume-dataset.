@@ -135,7 +135,7 @@ function  [tree]= DecisionTreeLearning(X,traffic_volume,depth,flag,attribute_nam
     tree = struct('op','','kids',[],'class',[],'attribute',0,'threshold', 0);
 
     n = length(traffic_volume);
-    min_node = 5000; % 10% of the number of observations
+    min_node = 4338; % 10% of the number of observations
     e =0.05;         % measure of error = 1-0.95 (95% of confidence)
 
     tree.class = mean(traffic_volume);
